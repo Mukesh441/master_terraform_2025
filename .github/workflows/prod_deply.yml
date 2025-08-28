@@ -31,7 +31,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: "1.13"
+          terraform_version: "1.13.0"
 
       - name: Terraform fmt (check)
         run: terraform fmt -check
@@ -83,7 +83,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: "1.13"
+          terraform_version: "1.13.0"
 
       - name: Terraform apply
         run: terraform apply -input=false "plan.tfplan"
