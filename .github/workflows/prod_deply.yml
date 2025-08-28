@@ -1,5 +1,4 @@
 # name: CI - Terraform deploy to prod
-
 # on:
 #   push:
 #     branches: [ main ]
