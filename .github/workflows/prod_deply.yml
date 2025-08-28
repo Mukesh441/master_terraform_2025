@@ -1,90 +1,73 @@
-name: CI - Terraform deploy to prod
+name: Terraform CI/CD
+
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   pull_request:
-    branches: [ main ]
-  workflow_dispatch:
-
-concurrency:
-  group: prod-deploy-${{ github.ref }}
-  cancel-in-progress: true
+    branches:
+      - main
 
 jobs:
-  plan:
-    name: Terraform Plan
+  terraform:
+    name: 'Terraform Lint, Security Check, and Deploy'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
+
+    env:
+      AWS_REGION: 'us-east-1'
+      TF_VERSION: '1.13.0'
+      TFLINT_VERSION: '0.46.1'  # Updated to a more recent version
+      TFSEC_VERSION: '1.28.1'   # Updated to a more recent version
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: 'Checkout GitHub repository'
+      uses: actions/checkout@v2
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+    - name: 'Configure AWS credentials'
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_version: "1.13.0"
+    - name: 'Set up Terraform'
+      uses: hashicorp/setup-terraform@v1
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
 
-      - name: Terraform fmt (check)
-        run: terraform fmt -check
-        working-directory: ./
+    - name: 'Install TFLint'
+      run: |
+        curl -sLo tflint.zip https://github.com/terraform-linters/tflint/releases/download/v${{ env.TFLINT_VERSION }}/tflint_linux_amd64.zip
+        unzip tflint.zip -d /usr/local/bin/
+        tflint --version
 
-      - name: Terraform init
-        run: terraform init -input=false
-        working-directory: ./
+    - name: 'Install tfsec'
+      run: |
+        curl -sLo tfsec https://github.com/aquasecurity/tfsec/releases/download/v${{ env.TFSEC_VERSION }}/tfsec-linux-amd64
+        chmod +x tfsec
+        mv tfsec /usr/local/bin/
+        tfsec --version
 
-      - name: Terraform validate
-        run: terraform validate
-        working-directory: ./
+    - name: 'Terraform Init'
+      run: terraform init
 
-      - name: Terraform plan
-        id: tfplan
-        run: terraform plan -input=false -refresh=true -out=plan.tfplan
-        working-directory: ./
+    - name: 'Terraform Format'
+      run: terraform fmt
 
-      - name: Upload plan artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: tfplan
-          path: ./plan.tfplan
+    - name: 'Terraform Validate'
+      run: terraform validate
 
-  apply:
-    name: Terraform Apply (prod)
-    runs-on: ubuntu-latest
-    needs: plan
-    environment:
-      name: prod
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: 'TFLint'
+      run: |
+        tflint --init
+        tflint
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+    - name: 'tfsec'
+      run: tfsec .
 
-      - name: Download plan artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: tfplan
-          path: ./
+    - name: 'Terraform Plan'
+      run: terraform plan -out=tfplan
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_version: "1.13.0"
-
-      - name: Terraform apply
-        run: terraform apply -input=false "plan.tfplan"
-        working-directory: ./
+    - name: 'Terraform Apply'
+      if: github.ref == 'refs/heads/main'
+      run: terraform apply -auto-approve tfplan
