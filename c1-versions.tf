@@ -3,8 +3,9 @@ terraform {
   backend "s3" {
     bucket = "mk-terraform-state-cicd"   # Your bucket name (lowercase)
     key    = "dev/terraform.tfstate" # State file path (e.g., "terraform.tfstate" or in folder)
-    region = "us-east-1"                  # Your bucket region
-    use_lockfile = "terraform-eks-state-locks"  # For state locking with DynamoDB (optional but recommended)
+    region = "us-east-1"  
+    dynamodb_table = "terraform-eks-state-locks"                # Your bucket region
+    use_lockfile = true  # For state locking with DynamoDB (optional but recommended)
     encrypt = true                        # Enable encryption of the state file
   }
   required_version = ">=  1.13"
