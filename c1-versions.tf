@@ -12,6 +12,6 @@ terraform {
 
 # Provider Block
 provider "aws" {
-  # profile = var.profile    //"default" # AWS Credentials Profile configured on your local desktop terminal  $HOME/.aws/credentials
+  profile = var.profile    //"default" # AWS Credentials Profile configured on your local desktop terminal  $HOME/.aws/credentials
   region  = var.aws_region //"ap-south-1"
 }
